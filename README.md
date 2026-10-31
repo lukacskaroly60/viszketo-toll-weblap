@@ -26,9 +26,13 @@ Megnézheted a gépeden is: nyisd meg a `site/index.html` fájlt a böngészőbe
 
 Cím és alcím módosítása: `python3 build.py export.zip --cim "Viszkető toll" --alcim "Írások az évek során"`
 
-## 3. Feltöltés a tárhelyre
+## 3. Feltöltés a tárhelyre (ABPlusz, Total Commander)
 
-A `site/` mappa **tartalmát** kell feltölteni a tárhely webgyökerébe (általában `public_html`),
-FTP-programmal (pl. FileZilla) vagy a cPanel Fájlkezelőjével.
+1. Total Commanderben: **Hálózat → FTP-kapcsolódás** (Ctrl+F), és kapcsolódj az ABPlusz tárhelyhez.
+2. A távoli oldalon lépj be a webgyökérbe (általában `public_html` vagy `www`).
+3. A helyi oldalon nyisd meg a `site/` mappát, jelöld ki a **tartalmát** (`index.html`, `style.css`, `bejegyzes`, `ev`, `media`, `oldal-*.html`), és másold át (F5).
+4. Nyisd meg a domainedet a böngészőben.
+
+Ha képek nem jelennek meg, ellenőrizd, hogy bináris módban ment-e az átvitel (a Total Commander alapból automatikusan jól választ).
 
 Az exportot (ZIP-eket) őrizd meg biztonsági mentésként is, mert abból a weblap bármikor újra elkészíthető.
