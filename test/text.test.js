@@ -21,3 +21,8 @@ test('renderBody escapel és formáz', () => {
 test('htmlToMarkup (docx import)', () => {
   assert.equal(htmlToMarkup('<p>Egy <em>dőlt</em> &amp; <strong>vastag</strong></p><p>Kettő</p>'), 'Egy *dőlt* & **vastag**\n\nKettő');
 });
+
+test('versek: soronkénti bekezdések, versszakhatár üres bekezdéssel', async () => {
+  const { poemHtmlToMarkup } = await import('../src/text.js');
+  assert.equal(poemHtmlToMarkup('<p>Egy</p><p>Kettő</p><p></p><p><em>Három</em></p><p></p>'), 'Egy\nKettő\n\n*Három*');
+});

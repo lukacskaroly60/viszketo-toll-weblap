@@ -69,6 +69,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_writings_date    ON writings (published_at DESC);
 `);
 
+// Későbbi bővítések (meglévő adatbázisnál is lefutnak)
+const cols = db.prepare('PRAGMA table_info(writings)').all().map((c) => c.name);
+if (!cols.includes('category')) {
+  db.exec(`ALTER TABLE writings ADD COLUMN category TEXT NOT NULL DEFAULT 'proza'`); // 'proza' | 'vers'
+}
+
+export const CATEGORIES = { proza: 'Próza', vers: 'Versek' };
+
 /** Tranzakció segédfüggvény. */
 export function tx(fn) {
   db.exec('BEGIN');

@@ -1,6 +1,7 @@
 // HTML-sablonok (sima JavaScript template literalok, minden adat escapelve).
 import { esc, renderBody, excerpt, huDate, huDateTime } from './text.js';
 import { SITE_NAME, AUTHOR, COMMENT_MAX } from './config.js';
+import { CATEGORIES } from './db.js';
 
 const imgUrl = (p) => '/' + p.split('/').map(encodeURIComponent).join('/');
 
@@ -57,9 +58,9 @@ function likeButton(w) {
   </button>`;
 }
 
-function pagination(page, pages, q) {
+function pagination(page, pages, q, kat) {
   if (pages <= 1) return '';
-  const href = (p) => `/?${new URLSearchParams({ ...(q ? { q } : {}), ...(p > 1 ? { oldal: p } : {}) })}`;
+  const href = (p) => `/?${new URLSearchParams({ ...(kat ? { kat } : {}), ...(q ? { q } : {}), ...(p > 1 ? { oldal: p } : {}) })}`;
   return `<nav class="pager" aria-label="Lapozás">
     ${page > 1 ? `<a href="${href(page - 1)}">← Újabbak</a>` : '<span></span>'}
     <span class="pager-info">${page}. oldal / ${pages}</span>
@@ -67,12 +68,12 @@ function pagination(page, pages, q) {
   </nav>`;
 }
 
-export function homePage({ writings, page, pages, q, total }) {
+export function homePage({ writings, page, pages, q, kat, total }) {
   const cards = writings.map((w) => `
     <article class="card">
       ${w.image ? `<a href="/iras/${esc(w.slug)}" class="card-img" tabindex="-1"><img src="${imgUrl(w.image)}" alt="" loading="lazy"></a>` : `<a href="/iras/${esc(w.slug)}" class="card-img card-img-empty" tabindex="-1">${QUILL}</a>`}
       <div class="card-body">
-        <time datetime="${esc(w.published_at)}">${huDate(w.published_at)}</time>
+        <div class="card-kicker"><span class="cat cat-${esc(w.category)}">${esc(CATEGORIES[w.category] || '')}</span> · <time datetime="${esc(w.published_at)}">${huDate(w.published_at)}</time></div>
         <h2><a href="/iras/${esc(w.slug)}">${esc(w.title)}</a></h2>
         <p>${esc(excerpt(w.body))}</p>
         <div class="card-meta">
@@ -87,13 +88,18 @@ export function homePage({ writings, page, pages, q, total }) {
     <h1>Viszkető Toll</h1>
     <p>${esc(AUTHOR)} történetei, tárcái és gondolatai – ahogy a toll viszketett.</p>
     <form class="search" method="get" action="/" role="search">
+      ${kat ? `<input type="hidden" name="kat" value="${esc(kat)}">` : ''}
       <input type="search" name="q" value="${esc(q || '')}" placeholder="Keresés az írásokban…" aria-label="Keresés">
       <button class="btn">Keresés</button>
     </form>
   </section>
+  <nav class="tabs" aria-label="Kategóriák">
+    <a href="/${q ? `?q=${encodeURIComponent(q)}` : ''}" class="${!kat ? 'active' : ''}">Összes</a>
+    ${Object.entries(CATEGORIES).map(([k, label]) => `<a href="/?${new URLSearchParams({ kat: k, ...(q ? { q } : {}) })}" class="${kat === k ? 'active' : ''}">${label}</a>`).join('')}
+  </nav>
   ${q ? `<p class="result-info">${total} találat erre: „${esc(q)}” · <a href="/">összes írás</a></p>` : ''}
   ${writings.length ? `<div class="grid">${cards}</div>` : `<p class="empty">${q ? 'Nincs találat.' : 'Még nincsenek írások feltöltve.'}</p>`}
-  ${pagination(page, pages, q)}`;
+  ${pagination(page, pages, q, kat)}`;
 }
 
 export function writingPage({ w, images, comments, myPending, user, prev, next, commentError, commentDraft }) {
@@ -101,11 +107,12 @@ export function writingPage({ w, images, comments, myPending, user, prev, next, 
   return `
   <article class="writing">
     <header class="writing-head">
-      <time datetime="${esc(w.published_at)}">${huDate(w.published_at)}</time>
+      <div class="card-kicker"><a class="cat cat-${esc(w.category)}" href="/?kat=${esc(w.category)}">${esc(CATEGORIES[w.category] || '')}</a> · <time datetime="${esc(w.published_at)}">${huDate(w.published_at)}</time></div>
       <h1>${esc(w.title)}</h1>
+      ${w.hidden ? '<p><span class="pill">Rejtett – csak te látod</span></p>' : ''}
     </header>
     ${hero ? `<figure class="writing-hero"><img src="${imgUrl(hero.path)}" alt="Illusztráció: ${esc(w.title)}"></figure>` : ''}
-    <div class="writing-body">${renderBody(w.body)}</div>
+    <div class="writing-body ${w.category === 'vers' ? 'poem' : ''}">${renderBody(w.body)}</div>
     ${rest.length ? `<div class="gallery">${rest.map((i) => `<figure><img src="${imgUrl(i.path)}" alt="Illusztráció: ${esc(w.title)}" loading="lazy"></figure>`).join('')}</div>` : ''}
     <div class="writing-actions">
       ${likeButton(w)}
@@ -202,26 +209,33 @@ export function adminComments({ pending, recent }) {
      ${btn(c.id, 'torol', 'Törlés', 'btn-danger')}`)).join('') : '<p class="muted">Még nincs.</p>'}`;
 }
 
-export function adminWritings({ writings }) {
+export function adminWritings({ writings, show, counts }) {
+  const f = (key, label) => `<a href="/admin/irasok${key ? `?mutat=${key}` : ''}" class="${show === key ? 'active' : ''}">${label}</a>`;
   return `
   <h1>Szerkesztés</h1>
   ${adminNav('writings')}
+  <p class="muted">A rejtett írások piszkozatok: az olvasók nem látják őket. A „Közzéteszem” gombbal egy kattintással megjelentetheted bármelyiket.</p>
+  <nav class="tabs tabs-small">${f('', `Mind (${counts.all_})`)}${f('lathato', `Láthatók (${counts.visible || 0})`)}${f('rejtett', `Rejtettek (${counts.hidden || 0})`)}</nav>
   <table class="table">
-    <thead><tr><th>Cím</th><th>Dátum</th><th>Kép</th><th>♥</th><th>Hozzászólás</th><th></th></tr></thead>
+    <thead><tr><th>Cím</th><th>Fajta</th><th>Dátum</th><th>Kép</th><th>♥</th><th>Hozzá&shy;szólás</th><th></th></tr></thead>
     <tbody>
     ${writings.map((w) => `<tr class="${w.hidden ? 'is-hidden' : ''}">
-      <td><a href="/iras/${esc(w.slug)}">${esc(w.title)}</a>${w.hidden ? ' <span class="pill">rejtett</span>' : ''}</td>
-      <td>${esc(w.published_at)}</td>
+      <td><a href="/iras/${esc(w.slug)}">${esc(w.title)}</a>${w.hidden ? ' <span class="pill">rejtett</span>' : ''}
+        ${w.source_file ? `<br><small class="muted">${esc(w.source_file)}</small>` : ''}</td>
+      <td>${esc(CATEGORIES[w.category] || '')}</td>
+      <td class="nowrap">${esc(w.published_at)}</td>
       <td>${w.image_count || '<span class="warn">nincs</span>'}</td>
       <td>${w.like_count}</td>
       <td>${w.comment_count}</td>
-      <td><a href="/admin/iras/${w.id}">szerkesztés</a></td>
+      <td class="nowrap"><a href="/admin/iras/${w.id}">szerkesztés</a><br>
+        <form method="post" action="/admin/iras/${w.id}/lathatosag" class="inline"><input type="hidden" name="vissza" value="/admin/irasok${show ? `?mutat=${show}` : ''}">
+        <button class="linkish">${w.hidden ? 'Közzéteszem' : 'Elrejtem'}</button></form></td>
     </tr>`).join('')}
     </tbody>
   </table>`;
 }
 
-export function adminEditWriting({ w, images, error }) {
+export function adminEditWriting({ w, images, library = [], error }) {
   const isNew = !w.id;
   return `
   <h1>Szerkesztés</h1>
@@ -230,7 +244,10 @@ export function adminEditWriting({ w, images, error }) {
   ${error ? `<p class="error">${esc(error)}</p>` : ''}
   <form method="post" action="${isNew ? '/admin/iras/uj' : `/admin/iras/${w.id}`}" enctype="multipart/form-data" class="stack edit-form">
     <label>Cím <input name="title" required maxlength="200" value="${esc(w.title || '')}"></label>
-    <label>Dátum <input type="date" name="published_at" required value="${esc(w.published_at || new Date().toISOString().slice(0, 10))}"></label>
+    <div class="form-grid">
+      <label>Dátum <input type="date" name="published_at" required value="${esc(w.published_at || new Date().toISOString().slice(0, 10))}"></label>
+      <label>Fajta <select name="category">${Object.entries(CATEGORIES).map(([k, l]) => `<option value="${k}" ${(w.category || 'proza') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    </div>
     <label>Szöveg
       <textarea name="body" rows="22" required>${esc(w.body || '')}</textarea>
     </label>
@@ -238,7 +255,12 @@ export function adminEditWriting({ w, images, error }) {
     ${images?.length ? `<fieldset><legend>Képek</legend><div class="admin-images">
       ${images.map((i) => `<label class="admin-image"><img src="${imgUrl(i.path)}" alt=""><span><input type="checkbox" name="remove_image" value="${i.id}"> törlés</span></label>`).join('')}
     </div></fieldset>` : ''}
-    <label>Kép hozzáadása <input type="file" name="images" accept="image/jpeg,image/png,image/webp,image/gif" multiple></label>
+    ${library.length ? `<details class="library"><summary>Kép a képtárból (${library.length})</summary>
+      <p class="muted">Jelöld be, amelyik képet ehhez az íráshoz szeretnéd tenni. Ha egy kép már máshol is szerepel, az alatta lévő felirat mutatja, hol.</p>
+      <div class="admin-images">
+      ${library.map((i) => `<label class="admin-image"><img src="${imgUrl(i.path)}" alt="" loading="lazy"><span><input type="checkbox" name="library" value="${esc(i.name)}"> ${esc(i.name)}</span>${i.usedBy ? `<small class="muted">már itt: ${esc(i.usedBy)}</small>` : ''}</label>`).join('')}
+      </div></details>` : ''}
+    <label>Új kép feltöltése a gépről <input type="file" name="images" accept="image/jpeg,image/png,image/webp,image/gif" multiple></label>
     ${isNew ? '' : `<label class="check"><input type="checkbox" name="hidden" value="1" ${w.hidden ? 'checked' : ''}> Rejtett (nem jelenik meg az olvasóknak)</label>`}
     <div class="form-row">
       <button class="btn">${isNew ? 'Közzéteszem' : 'Mentés'}</button>

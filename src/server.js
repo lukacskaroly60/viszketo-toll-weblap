@@ -3,7 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import express from 'express';
 import multer from 'multer';
-import { db, tx } from './db.js';
+import { db, tx, CATEGORIES } from './db.js';
 import {
   ROOT, PORT, IS_PROD, IMAGES_DIR, UPLOAD_DIR, PAGE_SIZE, COMMENT_MAX,
 } from './config.js';
@@ -13,7 +13,7 @@ import {
 } from './auth.js';
 import * as V from './views.js';
 import { slugify, excerpt } from './text.js';
-import { importContent, uniqueSlug } from './import.js';
+import { importContent, uniqueSlug, listLibraryImages } from './import.js';
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -62,7 +62,7 @@ function safeBack(url) {
 }
 
 const LIST_COLUMNS = `
-  w.id, w.slug, w.title, w.body, w.published_at, w.hidden,
+  w.id, w.slug, w.title, w.body, w.published_at, w.hidden, w.category,
   (SELECT COUNT(*) FROM likes l WHERE l.writing_id = w.id) AS like_count,
   (SELECT COUNT(*) FROM comments c WHERE c.writing_id = w.id AND c.status = 'approved') AS comment_count,
   (SELECT path FROM images i WHERE i.writing_id = w.id ORDER BY position, id LIMIT 1) AS image,
@@ -72,15 +72,17 @@ const LIST_COLUMNS = `
 
 app.get('/', (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 100);
+  const kat = CATEGORIES[req.query.kat] ? req.query.kat : '';
   const page = Math.max(1, Number.parseInt(req.query.oldal, 10) || 1);
-  const where = `w.hidden = 0 ${q ? `AND (w.title LIKE :like OR w.body LIKE :like)` : ''}`;
-  const params = { vid: req.visitorId, ...(q ? { like: `%${q}%` } : {}) };
-  const { n: total } = db.prepare(`SELECT COUNT(*) AS n FROM writings w WHERE ${where}`).get(q ? { like: params.like } : {});
+  const where = `w.hidden = 0 ${q ? `AND (w.title LIKE :like OR w.body LIKE :like)` : ''} ${kat ? 'AND w.category = :kat' : ''}`;
+  const filter = { ...(q ? { like: `%${q}%` } : {}), ...(kat ? { kat } : {}) };
+  const params = { vid: req.visitorId, ...filter };
+  const { n: total } = db.prepare(`SELECT COUNT(*) AS n FROM writings w WHERE ${where}`).get(filter);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const writings = db.prepare(`
     SELECT ${LIST_COLUMNS} FROM writings w WHERE ${where}
     ORDER BY w.published_at DESC, w.id DESC LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`).all(params);
-  render(req, res, { body: V.homePage({ writings, page, pages, q, total }) });
+  render(req, res, { body: V.homePage({ writings, page, pages, q, kat, total }) });
 });
 
 const getWriting = db.prepare(`SELECT ${LIST_COLUMNS} FROM writings w WHERE w.slug = :slug`);
@@ -246,10 +248,13 @@ admin.post('/hozzaszolas/:id/:action', (req, res) => {
 });
 
 admin.get('/irasok', (req, res) => {
+  const show = ['lathato', 'rejtett'].includes(req.query.mutat) ? req.query.mutat : '';
+  const where = show === 'lathato' ? 'WHERE w.hidden = 0' : show === 'rejtett' ? 'WHERE w.hidden = 1' : '';
   const writings = db.prepare(`
-    SELECT ${LIST_COLUMNS}, (SELECT COUNT(*) FROM images i WHERE i.writing_id = w.id) AS image_count
-    FROM writings w ORDER BY w.published_at DESC, w.id DESC`).all({ vid: req.visitorId });
-  render(req, res, { title: 'Írások', body: V.adminWritings({ writings }) });
+    SELECT ${LIST_COLUMNS}, w.source_file, (SELECT COUNT(*) FROM images i WHERE i.writing_id = w.id) AS image_count
+    FROM writings w ${where} ORDER BY w.hidden, w.published_at DESC, w.id DESC`).all({ vid: req.visitorId });
+  const counts = db.prepare('SELECT COUNT(*) AS all_, SUM(hidden = 0) AS visible, SUM(hidden = 1) AS hidden FROM writings').get();
+  render(req, res, { title: 'Írások', body: V.adminWritings({ writings, show, counts }) });
 });
 
 const upload = multer({
@@ -270,6 +275,7 @@ function readWritingForm(req) {
     body: String(req.body.body || '').replace(/\r\n?/g, '\n').trim(),
     published_at: /^\d{4}-\d{2}-\d{2}$/.test(req.body.published_at) ? req.body.published_at : new Date().toISOString().slice(0, 10),
     hidden: req.body.hidden ? 1 : 0,
+    category: CATEGORIES[req.body.category] ? req.body.category : 'proza',
   };
 }
 
@@ -280,25 +286,44 @@ function saveUploads(writingId, files) {
   for (const f of files || []) addImage.run(writingId, `feltoltesek/${f.filename}`, writingId);
 }
 
+/** A képtárból (tartalom/kepek) kiválasztott képek hozzárendelése. */
+function saveLibraryPicks(writingId, picks) {
+  const lib = new Set(listLibraryImages());
+  for (const name of [].concat(picks || [])) {
+    if (lib.has(name)) db.prepare('INSERT OR IGNORE INTO images (writing_id, path, position) VALUES (?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM images WHERE writing_id = ?))')
+      .run(writingId, `kepek/${name}`, writingId);
+  }
+}
+
+function libraryFor(writingId) {
+  const usedHere = new Set(writingId ? getImages.all(writingId).map((i) => i.path) : []);
+  const usedElsewhere = new Map(db.prepare(`SELECT i.path, w.title FROM images i JOIN writings w ON w.id = i.writing_id
+    WHERE i.path LIKE 'kepek/%'`).all().map((r) => [r.path, r.title]));
+  return listLibraryImages()
+    .filter((n) => !usedHere.has(`kepek/${n}`))
+    .map((n) => ({ name: n, path: `kepek/${n}`, usedBy: usedElsewhere.get(`kepek/${n}`) || null }));
+}
+
 function removeUploadedFile(p) {
   if (p.startsWith('feltoltesek/')) fs.rm(path.join(UPLOAD_DIR, path.basename(p)), { force: true }, () => {});
 }
 
 admin.get('/iras/uj', (req, res) => {
-  render(req, res, { title: 'Új írás', body: V.adminEditWriting({ w: {} }) });
+  render(req, res, { title: 'Új írás', body: V.adminEditWriting({ w: {}, library: libraryFor(null) }) });
 });
 
 admin.post('/iras/uj', upload.array('images', 10), (req, res) => {
   const f = readWritingForm(req);
   if (!f.title || !f.body) {
     (req.files || []).forEach((x) => removeUploadedFile(`feltoltesek/${x.filename}`));
-    return render(req, res, { title: 'Új írás', body: V.adminEditWriting({ w: f, error: 'A cím és a szöveg kötelező.' }) }, 400);
+    return render(req, res, { title: 'Új írás', body: V.adminEditWriting({ w: f, library: libraryFor(null), error: 'A cím és a szöveg kötelező.' }) }, 400);
   }
   const slug = uniqueSlug(slugify(f.title));
   tx(() => {
-    const newId = Number(db.prepare(`INSERT INTO writings (slug, title, body, published_at, edited) VALUES (?, ?, ?, ?, 1)`)
-      .run(slug, f.title, f.body, f.published_at).lastInsertRowid);
+    const newId = Number(db.prepare(`INSERT INTO writings (slug, title, body, published_at, category, edited) VALUES (?, ?, ?, ?, ?, 1)`)
+      .run(slug, f.title, f.body, f.published_at, f.category).lastInsertRowid);
     saveUploads(newId, req.files);
+    saveLibraryPicks(newId, req.body.library);
   });
   setFlash(res, 'ok', 'Az írás megjelent.');
   res.redirect(`/iras/${slug}`);
@@ -309,7 +334,7 @@ const getWritingById = db.prepare('SELECT * FROM writings WHERE id = ?');
 admin.get('/iras/:id', (req, res) => {
   const w = getWritingById.get(Number(req.params.id));
   if (!w) return res.redirect('/admin/irasok');
-  render(req, res, { title: w.title, body: V.adminEditWriting({ w, images: getImages.all(w.id) }) });
+  render(req, res, { title: w.title, body: V.adminEditWriting({ w, images: getImages.all(w.id), library: libraryFor(w.id) }) });
 });
 
 admin.post('/iras/:id', upload.array('images', 10), (req, res) => {
@@ -317,12 +342,12 @@ admin.post('/iras/:id', upload.array('images', 10), (req, res) => {
   if (!w) return res.redirect('/admin/irasok');
   const f = readWritingForm(req);
   if (!f.title || !f.body) {
-    return render(req, res, { title: w.title, body: V.adminEditWriting({ w: { ...w, ...f }, images: getImages.all(w.id), error: 'A cím és a szöveg kötelező.' }) }, 400);
+    return render(req, res, { title: w.title, body: V.adminEditWriting({ w: { ...w, ...f }, images: getImages.all(w.id), library: libraryFor(w.id), error: 'A cím és a szöveg kötelező.' }) }, 400);
   }
   const removeIds = [].concat(req.body.remove_image || []).map(Number).filter(Boolean);
   tx(() => {
-    db.prepare(`UPDATE writings SET title = ?, body = ?, published_at = ?, hidden = ?, edited = 1 WHERE id = ?`)
-      .run(f.title, f.body, f.published_at, f.hidden, w.id);
+    db.prepare(`UPDATE writings SET title = ?, body = ?, published_at = ?, hidden = ?, category = ?, edited = 1 WHERE id = ?`)
+      .run(f.title, f.body, f.published_at, f.hidden, f.category, w.id);
     for (const imgId of removeIds) {
       const img = db.prepare('SELECT path FROM images WHERE id = ? AND writing_id = ?').get(imgId, w.id);
       if (!img) continue;
@@ -330,9 +355,15 @@ admin.post('/iras/:id', upload.array('images', 10), (req, res) => {
       removeUploadedFile(img.path);
     }
     saveUploads(w.id, req.files);
+    saveLibraryPicks(w.id, req.body.library);
   });
   setFlash(res, 'ok', 'Mentve.');
   res.redirect(`/admin/iras/${w.id}`);
+});
+
+admin.post('/iras/:id/lathatosag', (req, res) => {
+  db.prepare('UPDATE writings SET hidden = 1 - hidden, edited = 1 WHERE id = ?').run(Number(req.params.id));
+  res.redirect(safeBack(req.body.vissza || '/admin/irasok'));
 });
 
 admin.post('/iras/:id/torol', (req, res) => {

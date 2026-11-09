@@ -108,3 +108,13 @@ export function htmlToMarkup(html) {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
+
+/**
+ * Versekhez: a Wordben minden sor külön bekezdés, a versszakokat üres bekezdés választja el.
+ * Ebből sortöréses, versszakonként bekezdésekre bontott jelölés lesz.
+ */
+export function poemHtmlToMarkup(html) {
+  const lines = String(html).split(/<\/p>/).map((p) => htmlToMarkup(p + '</p>').replace(/\n+/g, ' ').trim());
+  while (lines.length && !lines.at(-1)) lines.pop();
+  return lines.join('\n').replace(/\n{2,}/g, '\n\n').trim();
+}
