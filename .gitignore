@@ -2,3 +2,6 @@ site/
 *.zip
 export/
 __pycache__/
+node_modules/
+data/
+.env
