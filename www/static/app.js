@@ -6,15 +6,18 @@ document.addEventListener('click', async (e) => {
   if (btn.disabled) return;
   btn.disabled = true;
   try {
-    const res = await fetch(`/iras/${encodeURIComponent(btn.dataset.like)}/lajk`, {
+    const res = await fetch(btn.dataset.like, {
       method: 'POST',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name=csrf]')?.content || '',
+      },
       credentials: 'same-origin',
     });
     if (!res.ok) throw new Error(res.status);
     const { liked, count } = await res.json();
     // ugyanannak az írásnak minden gombját frissítjük
-    document.querySelectorAll(`[data-like="${CSS.escape(btn.dataset.like)}"]`).forEach((b) => {
+    document.querySelectorAll(`[data-id="${CSS.escape(btn.dataset.id)}"]`).forEach((b) => {
       b.classList.toggle('liked', liked);
       b.setAttribute('aria-pressed', String(liked));
       b.querySelector('.like-count').textContent = count;

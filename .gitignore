@@ -2,6 +2,8 @@ site/
 *.zip
 export/
 __pycache__/
-node_modules/
-data/
-.env
+# futás közben keletkező adatok (adatbázis, feltöltött képek) – nem a repóba valók
+www/data/*
+!www/data/.htaccess
+www/feltoltesek/*
+!www/feltoltesek/.htaccess

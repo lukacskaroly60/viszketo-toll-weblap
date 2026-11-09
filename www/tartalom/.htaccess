@@ -1,0 +1,5 @@
+# A tartalom.json és az írások forrásfájljai nem nyilvánosak (a piszkozatok miatt).
+<Files "tartalom.json">
+  Require all denied
+</Files>
+Options -Indexes

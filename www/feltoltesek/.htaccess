@@ -1,0 +1,8 @@
+# Csak képek: PHP és egyéb szkriptek futtatása tiltva.
+Options -Indexes -ExecCGI
+<FilesMatch "\.(php|phtml|phar|pl|py|cgi|sh|htm|html|js)$">
+  Require all denied
+</FilesMatch>
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
