@@ -29,6 +29,7 @@ www/                ← EZT kell feltölteni a tárhelyre (a tartalmát a public
   feltoltesek/        a szerkesztőfelületen feltöltött képek
   tartalom/
     tartalom.json     az írások listája: cím, dátum, fajta, látható-e, képek
+    szerzo.jpg        Judit fényképe a főoldalon (ha nincs, a főoldal kép nélkül jelenik meg)
     irasok/proza/     prózai írások (.docx) – kívülről nem olvasható
     irasok/versek/    versek (.docx) – kívülről nem olvasható
     kepek/            illusztrációk (képtár)

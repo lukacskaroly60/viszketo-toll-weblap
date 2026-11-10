@@ -1,27 +1,31 @@
 :root {
-  --paper: #faf6ef;
-  --paper-2: #f2ebdf;
-  --card: #fffdf9;
-  --ink: #2b2420;
-  --ink-soft: #6b5f56;
-  --line: #e4d9c8;
-  --accent: #9c3d2e;      /* tinta-bordó */
+  /* Judit kérése: kék és halvány türkiz árnyalatok */
+  --paper: #edf6f7;       /* halvány türkizes háttér */
+  --paper-2: #dbecef;
+  --card: #fbfeff;
+  --ink: #1c2f3a;
+  --ink-soft: #4f6d7a;
+  --line: #c7dfe4;
+  --accent: #1b6a87;      /* mély kék-türkiz */
+  --accent-soft: #8fcfd8; /* világos türkiz díszítés */
   --accent-ink: #fff;
-  --heart: #c8443a;
-  --ok-bg: #e7f1e4; --ok-ink: #2e5a29;
-  --err-bg: #f8e4e0; --err-ink: #8a2a1d;
-  --shadow: 0 1px 2px rgba(60, 40, 20, .06), 0 6px 20px rgba(60, 40, 20, .06);
+  --heart: #d2493f;
+  --ok-bg: #e2f3ec; --ok-ink: #22573f;
+  --err-bg: #fbe7e4; --err-ink: #8a2a1d;
+  --shadow: 0 1px 2px rgba(18, 70, 90, .07), 0 8px 24px rgba(18, 70, 90, .08);
+  --bg-glow: radial-gradient(1200px 520px at 50% -120px, #d3eef1 0%, rgba(211, 238, 241, 0) 70%);
   --serif: 'Lora', Georgia, 'Times New Roman', serif;
   --display: 'Playfair Display', Georgia, serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #1d1a17; --paper-2: #26221e; --card: #24201c;
-    --ink: #ece4d8; --ink-soft: #b3a798; --line: #3a332c;
-    --accent: #e08a6f; --accent-ink: #1d1a17; --heart: #f07a6e;
-    --ok-bg: #233321; --ok-ink: #b9dcb0; --err-bg: #3a221e; --err-ink: #f2b6aa;
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+    --paper: #0f1e25; --paper-2: #162a32; --card: #13262e;
+    --ink: #e2eef1; --ink-soft: #9bb8c2; --line: #24414b;
+    --accent: #6cc3d5; --accent-soft: #2f6f7d; --accent-ink: #0f1e25; --heart: #f07a6e;
+    --ok-bg: #173226; --ok-ink: #b5e0c8; --err-bg: #3a221e; --err-ink: #f2b6aa;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
+    --bg-glow: radial-gradient(1200px 520px at 50% -120px, #18404a 0%, rgba(24, 64, 74, 0) 70%);
     color-scheme: dark;
   }
 }
@@ -29,7 +33,7 @@
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
-  margin: 0; background: var(--paper); color: var(--ink);
+  margin: 0; background: var(--bg-glow), var(--paper); background-repeat: no-repeat; color: var(--ink);
   font: 18px/1.7 var(--serif);
   display: flex; flex-direction: column; min-height: 100vh;
 }
@@ -43,7 +47,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.25; }
 .inline { display: inline; }
 
 /* ---- fejléc ---- */
-.site-header { border-bottom: 1px solid var(--line); background: var(--paper); position: sticky; top: 0; z-index: 10; }
+.site-header { border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 10; }
 .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 64px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: .6rem; text-decoration: none; color: var(--ink); }
 .brand .quill { width: 32px; height: 32px; color: var(--accent); }
@@ -203,3 +207,27 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
 .admin-image { width: 150px; }
 .admin-image span, .admin-image small { display: block; font-size: .78rem; word-break: break-word; }
 .nowrap { white-space: nowrap; }
+
+/* ---- főoldal: Judit képe ---- */
+.hero-author { display: grid; grid-template-columns: 250px 1fr; gap: 3.2rem; align-items: center;
+  max-width: 900px; margin: 0 auto; text-align: left; }
+.hero-author h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); }
+.hero-author p { margin: .5rem 0 1.4rem; font-size: 1.08rem; }
+.hero-author .search { margin: 0; }
+.portrait { position: relative; margin: 0; justify-self: center; width: 250px; }
+.portrait::before { /* halvány türkiz folt a kép mögött */
+  content: ''; position: absolute; inset: -22px -26px -18px -18px; z-index: 0;
+  border-radius: 46% 54% 42% 58% / 52% 44% 56% 48%;
+  background: radial-gradient(circle at 35% 30%, var(--accent-soft), transparent 70%);
+  opacity: .55; }
+.portrait img { position: relative; z-index: 1; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 50% 30%;
+  border-radius: 999px 999px 22px 22px;
+  box-shadow: 0 0 0 6px var(--card), 0 0 0 7px var(--line), 0 22px 44px rgba(18, 80, 100, .22); }
+.portrait figcaption { position: relative; z-index: 1; text-align: center; margin-top: .9rem;
+  font-family: var(--display); font-style: italic; color: var(--ink-soft); }
+.hero-sign { font-family: var(--display); font-style: italic; color: var(--accent); }
+@media (max-width: 720px) {
+  .hero-author { grid-template-columns: 1fr; gap: 1.6rem; text-align: center; }
+  .portrait { width: 170px; }
+  .hero-author .search { margin: 0 auto; }
+}

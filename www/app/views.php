@@ -123,12 +123,20 @@ function home_view(array $writings, int $page, int $pages, string $q, string $ka
             . '</nav>';
     }
 
-    return '<section class="hero"><h1>' . esc(cfg('oldal_neve')) . '</h1>'
-        . "<p>$author történetei, versei és gondolatai – ahogy a toll viszketett.</p>"
-        . '<form class="search" method="get" action="' . esc(url('/')) . '" role="search">'
+    $search = '<form class="search" method="get" action="' . esc(url('/')) . '" role="search">'
         . ($kat ? '<input type="hidden" name="kat" value="' . esc($kat) . '">' : '')
         . '<input type="search" name="q" value="' . esc($q) . '" placeholder="Keresés az írásokban…" aria-label="Keresés">'
-        . '<button class="btn">Keresés</button></form></section>'
+        . '<button class="btn">Keresés</button></form>';
+    $portrait = is_file(CONTENT_DIR . '/szerzo.jpg') ? 'tartalom/szerzo.jpg' : null;
+    $hero = $portrait
+        ? '<section class="hero hero-author"><figure class="portrait"><img src="' . esc(asset($portrait)) . '?v=' . @filemtime(CONTENT_DIR . '/szerzo.jpg') . '" alt="' . $author . '">'
+          . '<figcaption>' . $author . '</figcaption></figure>'
+          . '<div><h1>' . esc(cfg('oldal_neve')) . '</h1>'
+          . "<p>$author történetei, versei és gondolatai – ahogy a toll viszketett.</p>" . $search . '</div></section>'
+        : '<section class="hero"><h1>' . esc(cfg('oldal_neve')) . '</h1>'
+          . "<p>$author történetei, versei és gondolatai – ahogy a toll viszketett.</p>" . $search . '</section>';
+
+    return $hero
         . '<nav class="tabs" aria-label="Kategóriák">' . $tabs . '</nav>'
         . ($q !== '' ? '<p class="result-info">' . $total . ' találat erre: „' . esc($q) . '” · <a href="' . esc(url('/')) . '">összes írás</a></p>' : '')
         . ($writings ? '<div class="grid">' . $cards . '</div>' : '<p class="empty">' . ($q !== '' ? 'Nincs találat.' : 'Még nincsenek írások.') . '</p>')
