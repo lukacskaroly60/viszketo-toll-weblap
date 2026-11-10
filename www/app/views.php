@@ -132,9 +132,9 @@ function home_view(array $writings, int $page, int $pages, string $q, string $ka
         ? '<section class="hero hero-author"><figure class="portrait"><img src="' . esc(asset($portrait)) . '?v=' . @filemtime(CONTENT_DIR . '/szerzo.jpg') . '" alt="' . $author . '">'
           . '<figcaption>' . $author . '</figcaption></figure>'
           . '<div><h1>' . esc(cfg('oldal_neve')) . '</h1>'
-          . "<p>$author történetei, versei és gondolatai – ahogy a toll viszketett.</p>" . $search . '</div></section>'
+          . "<p>$author történetei, versei és gondolatai.</p>" . $search . '</div></section>'
         : '<section class="hero"><h1>' . esc(cfg('oldal_neve')) . '</h1>'
-          . "<p>$author történetei, versei és gondolatai – ahogy a toll viszketett.</p>" . $search . '</section>';
+          . "<p>$author történetei, versei és gondolatai.</p>" . $search . '</section>';
 
     return $hero
         . '<nav class="tabs" aria-label="Kategóriák">' . $tabs . '</nav>'
